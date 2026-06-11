@@ -34,20 +34,19 @@ export default function GanttChart({ data, options }: GanttChartProps) {
     return h * 60 + m;
   };
 
-  const ganttData: any[] = [];
-  data.forEach((task) => {
+  const seriesData: any[] = data.map((task) => {
     const yIdx = taskNames.indexOf(task.name);
     const start = timeToMinutes(task.startTime);
     const end = timeToMinutes(task.endTime);
     const duration = end - start;
-    ganttData.push({
+    return {
       value: [yIdx, start, duration, task.id],
       itemStyle: {
         color: GANTT_COLORS[task.type],
         opacity: task.status === 'completed' ? 0.5 : 1,
       },
       task,
-    });
+    };
   });
 
   const chartOption: EChartsOption = {
@@ -110,8 +109,7 @@ export default function GanttChart({ data, options }: GanttChartProps) {
       {
         name: '压雪',
         type: 'bar',
-        stack: 'total',
-        data: ganttData.filter((d) => d.task.type === 'grooming'),
+        data: seriesData.filter((d) => d.task.type === 'grooming'),
         barWidth: '60%',
         itemStyle: { borderRadius: [4, 4, 4, 4] },
         label: {
@@ -128,8 +126,7 @@ export default function GanttChart({ data, options }: GanttChartProps) {
       {
         name: '造雪',
         type: 'bar',
-        stack: 'total',
-        data: ganttData.filter((d) => d.task.type === 'snowmaking'),
+        data: seriesData.filter((d) => d.task.type === 'snowmaking'),
         barWidth: '60%',
         itemStyle: { borderRadius: [4, 4, 4, 4] },
         label: {

@@ -27,9 +27,34 @@ const getPisteLevelLabel = (level: string) => {
 };
 
 export default function PisteMap({ data, options }: PisteMapProps) {
-  const maxLength = Math.max(...data.map((d) => d.length), 1);
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center text-gray-400">
+        <div className="text-5xl mb-3 opacity-30">🗺️</div>
+        <p>暂无雪道位置数据</p>
+      </div>
+    );
+  }
 
-  const scatterData = data.map((piste) => ({
+  const processedData = data.map((piste, index) => {
+    const hasPosition = piste.positionX !== undefined && piste.positionY !== null &&
+                        piste.positionY !== undefined && piste.positionY !== null;
+    return {
+      ...piste,
+      positionX: hasPosition ? piste.positionX! : (index + 1) * 100,
+      positionY: hasPosition ? piste.positionY! : (index + 1) * 80,
+    };
+  });
+
+  const maxLength = Math.max(...processedData.map((d) => d.length), 1);
+  const xValues = processedData.map((d) => d.positionX);
+  const yValues = processedData.map((d) => d.positionY);
+  const xMin = Math.min(...xValues, 0);
+  const xMax = Math.max(...xValues, 100) * 1.2;
+  const yMin = Math.min(...yValues, 0);
+  const yMax = Math.max(...yValues, 100) * 1.2;
+
+  const scatterData = processedData.map((piste) => ({
     value: [piste.positionX, piste.positionY, piste.length],
     symbolSize: Math.max(20, (piste.length / maxLength) * 60),
     itemStyle: {
@@ -93,8 +118,8 @@ export default function PisteMap({ data, options }: PisteMapProps) {
     xAxis: {
       type: 'value',
       name: 'X坐标',
-      min: 0,
-      max: 100,
+      min: xMin,
+      max: xMax,
       axisLabel: { color: '#595959' },
       axisLine: { lineStyle: { color: '#1890ff' } },
       splitLine: { lineStyle: { color: '#e6f7ff', type: 'dashed' } },
@@ -102,8 +127,8 @@ export default function PisteMap({ data, options }: PisteMapProps) {
     yAxis: {
       type: 'value',
       name: 'Y坐标',
-      min: 0,
-      max: 100,
+      min: yMin,
+      max: yMax,
       axisLabel: { color: '#595959' },
       axisLine: { lineStyle: { color: '#1890ff' } },
       splitLine: { lineStyle: { color: '#e6f7ff', type: 'dashed' } },

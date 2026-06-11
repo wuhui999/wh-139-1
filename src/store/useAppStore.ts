@@ -152,13 +152,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const temperature = latestWeather?.temperature ?? 0;
     const humidity = latestWeather?.humidity ?? 0;
 
-    const availableEquipment = equipment.filter((e) => e.status === 'idle' || e.status === 'running');
-    const highRiskPistes = snowPistes.filter((p) => p.riskScore > 40);
+    const availableEquipment = equipment.filter((e) => ['running', 'stopped', 'idle', 'maintenance'].includes(e.status));
+    const snowDeficitPistes = snowPistes.filter((p) => (p.baseSnowDepth - p.currentSnowDepth) > 2 || p.riskScore > 10);
 
-    const snowMakingSuggestions: SnowMakingSuggestion[] = highRiskPistes
-      .filter(() => temperature < -2 && humidity < 80)
+    let snowMakingSuggestions: SnowMakingSuggestion[] = snowDeficitPistes
       .map((piste, index) => {
-        const equipmentItem = availableEquipment[index % availableEquipment.length];
+        const equipmentItem = availableEquipment[index % Math.max(availableEquipment.length, 1)];
 
         const suggestedStart = new Date(now);
         const currentHour = suggestedStart.getHours();
@@ -174,9 +173,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const expectedSnowOutput = Math.max(0, snowDeficit * piste.length * 10);
         const estimatedEnergyCost = expectedSnowOutput * 0.5;
 
+        const isTempOk = temperature < -2;
+        const isHumidityOk = humidity < 80;
+        let efficiency = 0.8;
+        if (!isTempOk) efficiency *= 0.5;
+        if (!isHumidityOk) efficiency *= 0.7;
+
         const reasons: string[] = [];
-        if (temperature < -2) reasons.push('气温适宜造雪');
-        if (humidity < 80) reasons.push('湿度条件良好');
+        if (isTempOk) reasons.push('气温适宜造雪');
+        else reasons.push(`气温偏高(${temperature.toFixed(1)}°C)，建议等降温`);
+        if (isHumidityOk) reasons.push('湿度条件良好');
+        else reasons.push(`湿度偏高(${humidity.toFixed(0)}%)，效率降低`);
         if (piste.riskScore > 70) reasons.push('高风险雪道');
         if (snowDeficit > 10) reasons.push('雪深不足');
 
@@ -191,10 +198,40 @@ export const useAppStore = create<AppStore>((set, get) => ({
           suggestedEndTime: suggestedEnd.toISOString(),
           expectedSnowOutput: Math.round(expectedSnowOutput),
           estimatedEnergyCost: Math.round(estimatedEnergyCost),
-          expectedEfficiency: 0.8,
-          reason: reasons.join('、') || '造雪条件适宜',
+          expectedEfficiency: Math.round(efficiency * 100) / 100,
+          reason: reasons.join('、'),
         };
       });
+
+    if (snowMakingSuggestions.length === 0 && snowPistes.length > 0) {
+      const fallbackPistes = snowPistes.slice(0, Math.min(2, snowPistes.length));
+      snowMakingSuggestions = fallbackPistes.map((piste, index) => {
+        const equipmentItem = equipment[index % Math.max(equipment.length, 1)];
+
+        const suggestedStart = new Date(now);
+        suggestedStart.setHours(22, 0, 0, 0);
+        if (suggestedStart <= now) {
+          suggestedStart.setDate(suggestedStart.getDate() + 1);
+        }
+        const suggestedEnd = new Date(suggestedStart);
+        suggestedEnd.setHours(suggestedStart.getHours() + 4);
+
+        return {
+          id: generateId(),
+          pisteId: piste.id,
+          pisteName: piste.name,
+          equipmentId: equipmentItem?.id ?? '',
+          equipmentName: equipmentItem?.name ?? '造雪机-01',
+          priority: index + 1,
+          suggestedStartTime: suggestedStart.toISOString(),
+          suggestedEndTime: suggestedEnd.toISOString(),
+          expectedSnowOutput: Math.round(piste.length * 80),
+          estimatedEnergyCost: Math.round(piste.length * 40),
+          expectedEfficiency: 0.75,
+          reason: '常规雪层维护建议',
+        };
+      });
+    }
 
     set({ groomingSuggestions, snowMakingSuggestions });
     get().saveToLocalStorage();

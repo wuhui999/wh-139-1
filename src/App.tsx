@@ -17,11 +17,10 @@ export default function App() {
     const hasData = loadFromLocalStorage();
     if (!hasData) {
       loadMockData();
-    } else {
-      calculateRisk();
-      generateSuggestions();
-      detectAnomalies();
     }
+    calculateRisk();
+    generateSuggestions();
+    detectAnomalies();
   }, [loadFromLocalStorage, loadMockData, calculateRisk, generateSuggestions, detectAnomalies]);
 
   return (

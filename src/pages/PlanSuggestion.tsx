@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Card, Table, Button, Space, Tag, message } from 'antd';
+import { useMemo, useState } from 'react';
+import { Card, Table, Button, Space, Tag, message, Modal, InputNumber } from 'antd';
 import { Snowflake, Clock, MapPin, CheckCircle, RefreshCw, Download, GripVertical } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { GroomingSuggestion, SnowMakingSuggestion } from '@/store/types';
@@ -14,33 +14,65 @@ const fmtDuration = (s: string, e: string) => {
 };
 
 export default function PlanSuggestion() {
-  const { groomingSuggestions, snowMakingSuggestions, generateSuggestions, exportReport } = useAppStore();
+  const { groomingSuggestions, snowMakingSuggestions, generateSuggestions, exportReport, setData } = useAppStore();
+  const [localGrooming, setLocalGrooming] = useState<GroomingSuggestion[] | null>(null);
+  const [localSnowMaking, setLocalSnowMaking] = useState<SnowMakingSuggestion[] | null>(null);
+  const [adjustModal, setAdjustModal] = useState<{ visible: boolean; id: string; hours: number }>({ visible: false, id: '', hours: 2 });
+
+  const grooming = localGrooming ?? groomingSuggestions;
+  const snowMaking = localSnowMaking ?? snowMakingSuggestions;
 
   const stats = useMemo(() => {
-    const pendingPistes = groomingSuggestions.length;
-    const snowMakingSlots = snowMakingSuggestions.length;
-    const totalGroomingTime = groomingSuggestions.reduce((acc, s) => {
+    const pendingPistes = grooming.length;
+    const snowMakingSlots = snowMaking.length;
+    const totalGroomingTime = grooming.reduce((acc, s) => {
       return acc + (new Date(s.suggestedEndTime).getTime() - new Date(s.suggestedStartTime).getTime()) / 3600000;
     }, 0);
     return { pendingPistes, snowMakingSlots, totalGroomingTime: totalGroomingTime.toFixed(1) };
-  }, [groomingSuggestions, snowMakingSuggestions]);
+  }, [grooming, snowMaking]);
 
   const ganttData = useMemo(() => {
     const data: any[] = [];
-    groomingSuggestions.forEach((s: GroomingSuggestion) => data.push({
+    grooming.forEach((s: GroomingSuggestion) => data.push({
       id: s.id, name: `压雪 - ${s.pisteName}`, type: 'grooming' as const,
       startTime: s.suggestedStartTime, endTime: s.suggestedEndTime, status: 'pending' as const, pisteName: s.pisteName,
     }));
-    snowMakingSuggestions.forEach((s: SnowMakingSuggestion) => data.push({
+    snowMaking.forEach((s: SnowMakingSuggestion) => data.push({
       id: s.id, name: `造雪 - ${s.pisteName}`, type: 'snowmaking' as const,
       startTime: s.suggestedStartTime, endTime: s.suggestedEndTime, status: 'pending' as const, pisteName: s.pisteName,
     }));
     return data;
-  }, [groomingSuggestions, snowMakingSuggestions]);
+  }, [grooming, snowMaking]);
 
   const handleConfirm = () => message.success('计划已确认，将通知相关操作员');
-  const handleRecalculate = () => { generateSuggestions(); message.success('已重新计算建议'); };
+  const handleRecalculate = () => {
+    setLocalGrooming(null);
+    setLocalSnowMaking(null);
+    generateSuggestions();
+    message.success('已重新计算建议');
+  };
   const handleExport = () => { exportReport(); message.success('报告已导出'); };
+
+  const handleRemove = (id: string) => {
+    setLocalGrooming(grooming.filter((s) => s.id !== id).map((s, i) => ({ ...s, priority: i + 1 })));
+    message.success('已移除该建议');
+  };
+
+  const handleAdjustOpen = (id: string) => {
+    const item = grooming.find((s) => s.id === id);
+    const hours = item ? (new Date(item.suggestedEndTime).getTime() - new Date(item.suggestedStartTime).getTime()) / 3600000 : 2;
+    setAdjustModal({ visible: true, id, hours: Math.round(hours * 10) / 10 });
+  };
+
+  const handleAdjustConfirm = () => {
+    setLocalGrooming(grooming.map((s) => {
+      if (s.id !== adjustModal.id) return s;
+      const newEnd = new Date(new Date(s.suggestedStartTime).getTime() + adjustModal.hours * 3600000);
+      return { ...s, suggestedEndTime: newEnd.toISOString() };
+    }));
+    setAdjustModal({ visible: false, id: '', hours: 2 });
+    message.success('已调整建议时段');
+  };
 
   const groomingColumns = [
     { title: '排名', dataIndex: 'priority', key: 'priority', width: 80,
@@ -74,10 +106,10 @@ export default function PlanSuggestion() {
     { title: '原因', dataIndex: 'reason', key: 'reason', ellipsis: true,
       render: (r: string) => <Tag color="blue" className="whitespace-nowrap">{r}</Tag> },
     { title: '操作', key: 'action', width: 120,
-      render: () => (
+      render: (_: unknown, r: GroomingSuggestion) => (
         <Space>
-          <Button type="link" size="small">调整</Button>
-          <Button type="link" size="small" danger>移除</Button>
+          <Button type="link" size="small" onClick={() => handleAdjustOpen(r.id)}>调整</Button>
+          <Button type="link" size="small" danger onClick={() => handleRemove(r.id)}>移除</Button>
         </Space>
       )},
   ];
@@ -91,13 +123,12 @@ export default function PlanSuggestion() {
     { title: '设备', dataIndex: 'equipmentName', key: 'equipmentName' },
     { title: '预计造雪量', key: 'output',
       render: (_: unknown, r: SnowMakingSuggestion) => {
-        const e = (r as any).expectedSnowOutput;
-        return e ? <span className="font-medium text-cyan-600">{e.toLocaleString()} m³</span> : <span className="text-gray-400">-</span>;
+        return r.expectedSnowOutput ? <span className="font-medium text-cyan-600">{r.expectedSnowOutput.toLocaleString()} m³</span> : <span className="text-gray-400">-</span>;
       }},
     { title: '效率预估', key: 'efficiency',
       render: (_: unknown, r: SnowMakingSuggestion) => {
-        const e = (r as any).expectedEfficiency;
-        return e ? <Tag color={e > 70 ? 'green' : e > 50 ? 'orange' : 'red'}>{e}%</Tag> : <span className="text-gray-400">-</span>;
+        const pct = Math.round(r.expectedEfficiency * 100);
+        return r.expectedEfficiency ? <Tag color={pct > 70 ? 'green' : pct > 50 ? 'orange' : 'red'}>{pct}%</Tag> : <span className="text-gray-400">-</span>;
       }},
     { title: '原因', dataIndex: 'reason', key: 'reason', ellipsis: true },
   ];
@@ -147,30 +178,78 @@ export default function PlanSuggestion() {
       </div>
 
       <Card title="压雪优先级列表" className="shadow-lg">
-        <Table
-          columns={groomingColumns}
-          dataSource={groomingSuggestions}
-          rowKey="id"
-          pagination={false}
-          size="middle"
-        />
+        {grooming.length > 0 ? (
+          <Table
+            columns={groomingColumns}
+            dataSource={grooming}
+            rowKey="id"
+            pagination={false}
+            size="middle"
+          />
+        ) : (
+          <div className="text-center py-8 text-gray-400">
+            <MapPin className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>暂无压雪建议</p>
+            <p className="text-sm mt-1">请点击"重新计算"按钮生成建议</p>
+            <Button type="primary" icon={<RefreshCw />} className="mt-4" onClick={handleRecalculate}>
+              生成建议
+            </Button>
+          </div>
+        )}
       </Card>
 
       <Card title="造雪时段建议" className="shadow-lg">
-        <Table
-          columns={snowMakingColumns}
-          dataSource={snowMakingSuggestions}
-          rowKey="id"
-          pagination={false}
-          size="middle"
-        />
+        {snowMaking.length > 0 ? (
+          <Table
+            columns={snowMakingColumns}
+            dataSource={snowMaking}
+            rowKey="id"
+            pagination={false}
+            size="middle"
+          />
+        ) : (
+          <div className="text-center py-8 text-gray-400">
+            <Snowflake className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>当前气象条件暂不满足造雪要求（需气温 &lt; -2°C 且湿度 &lt; 80%）</p>
+            <p className="text-sm mt-1">系统将持续监测，条件适宜时自动生成建议</p>
+          </div>
+        )}
       </Card>
 
       <Card title="计划甘特图" className="shadow-lg">
         <div className="h-80">
-          <GanttChart data={ganttData} />
+          {ganttData.length > 0 ? (
+            <GanttChart data={ganttData} />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-gray-400">
+              <Clock className="w-12 h-12 mb-3 opacity-30" />
+              <p>暂无计划数据</p>
+              <p className="text-sm mt-1">请生成压雪或造雪建议后查看</p>
+            </div>
+          )}
         </div>
       </Card>
+
+      <Modal
+        title="调整建议时段"
+        open={adjustModal.visible}
+        onOk={handleAdjustConfirm}
+        onCancel={() => setAdjustModal({ visible: false, id: '', hours: 2 })}
+        okText="确认调整"
+        cancelText="取消"
+      >
+        <div className="py-4">
+          <p className="mb-3 text-gray-600">调整预估压雪耗时（小时）：</p>
+          <InputNumber
+            min={0.5}
+            max={8}
+            step={0.5}
+            value={adjustModal.hours}
+            onChange={(v) => setAdjustModal({ ...adjustModal, hours: v ?? 2 })}
+            style={{ width: '100%' }}
+          />
+        </div>
+      </Modal>
     </div>
   );
 }
