@@ -19,9 +19,9 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { key: 'import', label: '数据导入', icon: Database, path: '/import' },
-  { key: 'piste', label: '雪道总览', icon: Mountain, path: '/piste' },
-  { key: 'suggestion', label: '计划建议', icon: Lightbulb, path: '/suggestion' },
+  { key: 'import', label: '数据导入', icon: Database, path: '/' },
+  { key: 'piste', label: '雪道总览', icon: Mountain, path: '/overview' },
+  { key: 'suggestion', label: '计划建议', icon: Lightbulb, path: '/plan' },
   { key: 'equipment', label: '设备监控', icon: MonitorSmartphone, path: '/equipment' },
   { key: 'report', label: '报告导出', icon: FileDown, path: '/report' },
 ];
@@ -31,7 +31,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const activeKey = menuItems.find((item) => item.path === location.pathname)?.key || 'piste';
+  const activeKey = menuItems.find((item) => item.path === location.pathname)?.key || 'import';
 
   const handleMenuClick = (path: string) => {
     navigate(path);

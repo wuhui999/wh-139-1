@@ -14,7 +14,6 @@ import {
 } from '@/store/types';
 import { useAppStore } from '@/store/useAppStore';
 import { parseCSV } from '@/utils/csvParser';
-import Layout from '@/components/layout/Layout';
 import SnowfallEffect from '@/components/common/SnowfallEffect';
 
 interface PreviewData {
@@ -174,10 +173,9 @@ export default function DataImport() {
   };
 
   return (
-    <Layout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">数据导入</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-800">数据导入</h1>
           <Button
             type="primary"
             size="large"
@@ -322,7 +320,6 @@ export default function DataImport() {
             </Button>
           </div>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 }

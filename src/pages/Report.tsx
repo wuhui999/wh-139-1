@@ -5,7 +5,6 @@ import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
 import { useAppStore } from '@/store/useAppStore';
 import { RISK_LEVEL_COLORS, PISTE_LEVEL_LABELS, GroomingSuggestion, SnowMakingSuggestion, SnowPiste } from '@/store/types';
-import Layout from '@/components/layout/Layout';
 import StatCard from '@/components/common/StatCard';
 import RiskBadge from '@/components/common/RiskBadge';
 import BarChart from '@/components/charts/BarChart';
@@ -176,8 +175,7 @@ export default function Report() {
   };
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center justify-between print:hidden">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <FileText className="w-7 h-7 text-blue-500" />
@@ -426,6 +424,5 @@ export default function Report() {
           </Card>
         </div>
       </div>
-    </Layout>
   );
 }

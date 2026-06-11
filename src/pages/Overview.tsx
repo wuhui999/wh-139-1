@@ -3,7 +3,6 @@ import { Card, Skeleton } from 'antd';
 import { Mountain, AlertTriangle, Thermometer, Users, Snowflake, Clock } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { PISTE_LEVEL_LABELS, RISK_LEVEL_COLORS } from '@/store/types';
-import Layout from '@/components/layout/Layout';
 import StatCard from '@/components/common/StatCard';
 import RiskBadge from '@/components/common/RiskBadge';
 import LineChart from '@/components/charts/LineChart';
@@ -41,18 +40,15 @@ export default function Overview() {
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="space-y-6">
-          <Skeleton active paragraph={{ rows: 4 }} />
-          <Skeleton active paragraph={{ rows: 4 }} />
-        </div>
-      </Layout>
+      <div className="space-y-6">
+        <Skeleton active paragraph={{ rows: 4 }} />
+        <Skeleton active paragraph={{ rows: 4 }} />
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-800">雪道总览</h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -213,6 +209,5 @@ export default function Overview() {
           <PisteMap data={snowPistes} />
         </Card>
       </div>
-    </Layout>
   );
 }
